@@ -1,0 +1,47 @@
+#!/bin/bash
+
+######### Subdomain Enumeration
+domain=$1
+res0=try.txt
+res1=sublist3r.txt
+res2=amass.txt
+res3=crt.txt
+result=all_subs.txt
+final=all.txt
+valid=subdomains.txt
+
+sublist3r -d $domain > $res0
+cat $res0 | grep $domain | grep -v Enumerating > $res1
+echo "* Finish Sublist3r Enumeration"
+amass enum --passive -d $domain -r 8.8.8.8 > $res2
+echo "* Finish Amass Enumeration"
+source ~/.bash_profile
+crtsh $1 > $res3
+echo "* Finish Certificate Subdomain Enumeration"
+
+cat $res1 $res2 $res3 > $result
+cat $result | sort -u > $final
+rm $res0 $res1 $res2 $res3
+echo "All SubDomains Save to ---> all.txt"
+cat $final | httprobe --prefer-https > $valid
+rm $final $result
+
+######### Collect Links
+echo "* Start Collect Links"
+file=$valid
+for i in $(cat $file)
+do
+waybackurls $i | grep -v 'css' | grep -v 'png' | grep -v 'jpg' | grep -v 'jpeg' | grep -v 'svg' | grep -v 'gif' | grep -v 'general' | grep -v 'guide' | grep -v 'Guide'>> links.txt
+done
+
+######### Check for Subdomain takeover
+echo "* Start look for CNAMEs"
+thefile=$valid
+cat $thefile | cut -d '/' -f 3 > purpose.txt
+echo "Result" > cname.txt
+while read domain
+do
+nslookup -type=cname "$domain" | grep canonical >> cname.txt
+done < purpose.txt
+rm purpose.txt
+
